@@ -1,25 +1,22 @@
-import logo from './logo.svg';
-import './App.css';
+// App.js
+import ExhibitionsTable from './Components/ExhibitionsTable';
+import NewsTable from './Components/NewsTable';
+import './App.css'; // Importamos los estilos puros en CSS
 
-function App() {
+export default function HomePage() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div className="homepage">
+      <div className="container">
+        <h1 className="title">Museo Papalote</h1>
+        <div className="grid">
+          <div className="grid-item">
+            <NewsTable />
+          </div>
+          <div className="grid-item">
+            <ExhibitionsTable />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
-
-export default App;
