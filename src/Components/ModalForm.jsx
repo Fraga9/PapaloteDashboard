@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import "../Styles/ModalForm.css";
+import React from 'react'; // Explicit import for React
 
 export default function ModalForm({ isOpen, onClose, title, children }) {
   const [open, setOpen] = useState(isOpen);

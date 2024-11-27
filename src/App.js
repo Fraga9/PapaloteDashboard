@@ -2,6 +2,7 @@
 import ExhibitionsTable from './Components/ExhibitionsTable';
 import NewsTable from './Components/NewsTable';
 import './App.css'; // Importamos los estilos puros en CSS
+import React from 'react';
 
 export default function HomePage() {
   return (

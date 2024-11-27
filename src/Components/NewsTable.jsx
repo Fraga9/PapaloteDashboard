@@ -1,18 +1,23 @@
-// src/components/NewsTable.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ModalForm from './ModalForm';
-import '../Styles/NewsTable.css';
-
-const initialNews = [
-  { id: 1, title: 'Nueva exposición de dinosaurios', date: '2023-05-15', image: '/placeholder.svg' },
-  { id: 2, title: 'Taller de ciencias para niños', date: '2023-06-01', image: '/placeholder.svg' },
-  { id: 3, title: 'Visita especial de astronauta', date: '2023-06-15', image: '/placeholder.svg' },
-];
+import { db } from '../firebase.js'; // Ensure Firebase config is properly imported
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 
 export default function NewsTable() {
-  const [news, setNews] = useState(initialNews);
+  const [news, setNews] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentNews, setCurrentNews] = useState(null);
+
+  // Fetch news from Firebase
+  const fetchNews = async () => {
+    const querySnapshot = await getDocs(collection(db, "news"));
+    const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    setNews(data);
+  };
+
+  useEffect(() => {
+    fetchNews();
+  }, []);
 
   const handleAdd = () => {
     setCurrentNews(null);
@@ -25,26 +30,27 @@ export default function NewsTable() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
-    setNews(news.filter((item) => item.id !== id));
+  const handleDelete = async (id) => {
+    await deleteDoc(doc(db, "news", id));
+    fetchNews();
   };
 
-  const handleSubmit = (data) => {
+  const handleSubmit = async (data) => {
     if (currentNews) {
-      setNews(news.map((item) => (item.id === currentNews.id ? data : item)));
+      const docRef = doc(db, "news", currentNews.id);
+      await updateDoc(docRef, data);
     } else {
-      setNews([...news, { ...data, id: Date.now() }]);
+      await addDoc(collection(db, "news"), data);
     }
     setIsModalOpen(false);
+    fetchNews();
   };
 
   return (
     <div className="news-table">
       <div className="news-header">
         <h2>Noticias</h2>
-        <button className="btn-add" onClick={handleAdd}>
-          Añadir Noticia
-        </button>
+        <button className="btn-add" onClick={handleAdd}>Añadir Noticia</button>
       </div>
       <table className="table">
         <thead>
@@ -58,40 +64,25 @@ export default function NewsTable() {
         <tbody>
           {news.map((item) => (
             <tr key={item.id}>
-              <td>
-                <img src={item.image} alt={item.title} className="table-image" />
-              </td>
+              <td><img src={item.image} alt={item.title} className="table-image" /></td>
               <td>{item.title}</td>
               <td>{item.date}</td>
               <td>
-                <button className="btn-edit" onClick={() => handleEdit(item.id)}>
-                  Editar
-                </button>
-                <button className="btn-delete" onClick={() => handleDelete(item.id)}>
-                  Eliminar
-                </button>
+                <button className="btn-edit" onClick={() => handleEdit(item.id)}>Editar</button>
+                <button className="btn-delete" onClick={() => handleDelete(item.id)}>Eliminar</button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      {isModalOpen && <ModalForm isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={currentNews ? "Editar Noticia" : "Añadir Noticia"} onSubmit={handleSubmit}>
-        <form>
-          <label>
-            Título:
-            <input type="text" defaultValue={currentNews ? currentNews.title : ''} />
-          </label>
-          <label>
-            Fecha:
-            <input type="date" defaultValue={currentNews ? currentNews.date : ''} />
-          </label>
-          <label>
-            Imagen:
-            <input type="text" defaultValue={currentNews ? currentNews.image : ''} />
-          </label>
-          <button type="submit">Guardar</button>
-        </form>
-      </ModalForm>}
+      {isModalOpen && (
+        <ModalForm
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          title={currentNews ? "Editar Noticia" : "Añadir Noticia"}
+          onSubmit={handleSubmit}
+        />
+      )}
     </div>
   );
 }

@@ -1,97 +1,120 @@
-// src/components/ExhibitionsTable.jsx
-import React, { useState } from 'react';
-import ModalForm from './ModalForm';
-import '../Styles/ExhibitionsTable.css';
-
-const initialExhibitions = [
-  { id: 1, name: "El Cuerpo Humano", startDate: "2023-04-01", endDate: "2023-08-31", image: "/placeholder.svg" },
-  { id: 2, name: "Explorando el Espacio", startDate: "2023-05-15", endDate: "2023-09-15", image: "/placeholder.svg" },
-  { id: 3, name: "Mundo Submarino", startDate: "2023-06-01", endDate: "2023-10-31", image: "/placeholder.svg" },
-];
+import React, { useState, useEffect } from 'react';
+import { db } from '../firebase.js'; // Importa tu configuración de Firebase
+import { collection, getDocs, doc, deleteDoc, updateDoc, addDoc } from 'firebase/firestore';
 
 export default function ExhibitionsTable() {
-  const [exhibitions, setExhibitions] = useState(initialExhibitions);
+  const [obras, setObras] = useState([]); // Almacenar documentos de "Obras"
+  const [currentObra, setCurrentObra] = useState(null); // Obra seleccionada para editar
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentExhibition, setCurrentExhibition] = useState(null);
+
+  // Función para cargar las obras desde Firestore
+  const fetchObras = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'Obras'));
+      const data = await Promise.all(
+        querySnapshot.docs.map(async (doc) => {
+          const imagesSnapshot = await getDocs(collection(doc.ref, 'Images')); // Carga subcolección "Images"
+          const images = imagesSnapshot.docs.map((imgDoc) => ({
+            id: imgDoc.id,
+            ...imgDoc.data(),
+          }));
+          return { id: doc.id, ...doc.data(), images };
+        })
+      );
+      setObras(data);
+    } catch (error) {
+      console.error('Error al cargar las obras:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchObras();
+  }, []);
 
   const handleAdd = () => {
-    setCurrentExhibition(null);
+    setCurrentObra(null); // Resetea la obra actual al agregar una nueva
     setIsModalOpen(true);
   };
 
   const handleEdit = (id) => {
-    const exhibitionToEdit = exhibitions.find((item) => item.id === id);
-    setCurrentExhibition(exhibitionToEdit);
+    const obraToEdit = obras.find((item) => item.id === id);
+    setCurrentObra(obraToEdit);
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
-    setExhibitions(exhibitions.filter((item) => item.id !== id));
+  const handleDelete = async (id) => {
+    try {
+      await deleteDoc(doc(db, 'Obras', id)); // Elimina el documento
+      fetchObras(); // Recargar datos
+    } catch (error) {
+      console.error('Error al eliminar la obra:', error);
+    }
   };
 
-  const handleSubmit = (data) => {
-    if (currentExhibition) {
-      setExhibitions(exhibitions.map((item) => (item.id === currentExhibition.id ? data : item)));
-    } else {
-      setExhibitions([...exhibitions, { ...data, id: Date.now() }]);
+  const handleSubmit = async (data) => {
+    try {
+      if (currentObra) {
+        // Actualiza la obra existente
+        await updateDoc(doc(db, 'Obras', currentObra.id), data);
+      } else {
+        // Agrega una nueva obra
+        await addDoc(collection(db, 'Obras'), data);
+      }
+      setIsModalOpen(false);
+      fetchObras();
+    } catch (error) {
+      console.error('Error al guardar la obra:', error);
     }
-    setIsModalOpen(false);
   };
 
   return (
     <div className="exhibitions-table">
       <div className="exhibitions-header">
-        <h2 className="section-title">Exposiciones</h2>
+        <h2 className="section-title">Obras</h2>
         <button className="btn-add" onClick={handleAdd}>
-          Añadir Exposición
+          Añadir Obra
         </button>
       </div>
       <table className="table">
         <thead>
           <tr>
             <th>Imagen</th>
-            <th>Nombre</th>
-            <th>Inicio</th>
-            <th>Fin</th>
+            <th>Título</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
-          {exhibitions.map((item) => (
-            <tr key={item.id}>
-              <td><img src={item.image} alt={item.name} className="table-image" /></td>
-              <td>{item.name}</td>
-              <td>{item.startDate}</td>
-              <td>{item.endDate}</td>
+          {obras.map((obra) => (
+            <tr key={obra.id}>
               <td>
-                <button className="btn-edit" onClick={() => handleEdit(item.id)}>Editar</button>
-                <button className="btn-delete" onClick={() => handleDelete(item.id)}>Eliminar</button>
+                <img
+                  src={obra.thumbnailImageRes} // Imagen principal
+                  alt={obra.title}
+                  className="table-image"
+                />
+              </td>
+              <td>{obra.title}</td>
+              <td>
+                <button className="btn-edit" onClick={() => handleEdit(obra.id)}>
+                  Editar
+                </button>
+                <button className="btn-delete" onClick={() => handleDelete(obra.id)}>
+                  Eliminar
+                </button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      {isModalOpen && <ModalForm isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={currentExhibition ? "Editar Exposición" : "Añadir Exposición"} onSubmit={handleSubmit}>
-        <form>
-          <label>
-            Nombre:
-            <input type="text" defaultValue={currentExhibition ? currentExhibition.name : ''} />
-          </label>
-          <label>
-            Inicio:
-            <input type="date" defaultValue={currentExhibition ? currentExhibition.startDate : ''} />
-          </label>
-          <label>
-            Fin:
-            <input type="date" defaultValue={currentExhibition ? currentExhibition.endDate : ''} />
-          </label>
-          <label>
-            Imagen:
-            <input type="text" defaultValue={currentExhibition ? currentExhibition.image : ''} />
-          </label>
-          <button type="submit">Guardar</button>
-        </form>
-      </ModalForm>}
+      {isModalOpen && (
+        <ModalForm
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          title={currentObra ? 'Editar Obra' : 'Añadir Obra'}
+          onSubmit={handleSubmit}
+          obra={currentObra}
+        />
+      )}
     </div>
   );
 }
